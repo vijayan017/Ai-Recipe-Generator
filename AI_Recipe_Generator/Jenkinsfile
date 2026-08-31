@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME     = "ai-recipe-generator"
         IMAGE_TAG      = "${BUILD_NUMBER}"
-        DOCKERHUB_REPO = "vijayan017/ai-recipe-generator"
+        DOCKERHUB_REPO = "vijayan12/ai-recipe-generator"
         DOCKERHUB_CRED = "dockerhub-credentials"
         CONTAINER_NAME = "ai-recipe-generator-app"
 
