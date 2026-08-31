@@ -4,9 +4,6 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'vijayan12/ai-recipe-generator'
-        DOCKER_CREDENTIALS = 'dockerhub-credentials'
-        CONTAINER_NAME = 'ai-recipe-generator'
-        APP_PORT = '5000'
         PYTHON = 'C:\\Users\\Vijayan\\AppData\\Local\\Python\\bin\\python.exe'
     }
 
@@ -51,8 +48,9 @@ pipeline {
             }
         }
 
+
         // ==========================================
-        // 2. SET UP PYTHON
+        // 2. SETUP PYTHON
         // ==========================================
         stage('Set Up Python') {
             steps {
@@ -61,7 +59,7 @@ pipeline {
                         echo ==============================
                         echo SETTING UP PYTHON
                         echo ==============================
-                        
+
                         if exist venv (
                             echo Virtual environment already exists.
                         ) else (
@@ -83,6 +81,7 @@ pipeline {
                 }
             }
         }
+
 
         // ==========================================
         // 3. LINT / BASIC CHECKS
@@ -106,11 +105,13 @@ pipeline {
                             exit /b 0
                         )
 
+                        echo.
                         echo Lint check completed successfully.
                     '''
                 }
             }
         }
+
 
         // ==========================================
         // 4. RUN TESTS
@@ -134,11 +135,13 @@ pipeline {
                             exit /b 0
                         )
 
+                        echo.
                         echo Tests completed successfully.
                     '''
                 }
             }
         }
+
 
         // ==========================================
         // 5. BUILD DOCKER IMAGE
@@ -172,18 +175,21 @@ pipeline {
             }
         }
 
+
         // ==========================================
-        // 6. PUSH TO DOCKER HUB
+        // 6. LOGIN + PUSH TO DOCKER HUB
         // ==========================================
         stage('Push to DockerHub') {
             steps {
+
                 withCredentials([
                     usernamePassword(
-                        credentialsId: "${DOCKER_CREDENTIALS}",
+                        credentialsId: 'dockerhub-credentials',
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
+
                     bat '''
                         echo ==============================
                         echo DOCKER HUB LOGIN
@@ -192,10 +198,14 @@ pipeline {
                         echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
 
                         if %ERRORLEVEL% NEQ 0 (
+                            echo.
                             echo Docker Hub login failed.
+                            echo Please check Jenkins credential:
+                            echo dockerhub-credentials
                             exit /b 1
                         )
 
+                        echo.
                         echo Docker Hub login successful.
 
                         echo.
@@ -206,7 +216,7 @@ pipeline {
                         docker push %DOCKER_IMAGE%:%BUILD_NUMBER%
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo Failed to push version image.
+                            echo Docker image push failed.
                             exit /b 1
                         )
 
@@ -218,19 +228,22 @@ pipeline {
                         docker push %DOCKER_IMAGE%:latest
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo Failed to push latest image.
+                            echo Docker latest image push failed.
                             exit /b 1
                         )
 
                         echo.
                         echo Docker images pushed successfully.
+
+                        docker logout
                     '''
                 }
             }
         }
 
+
         // ==========================================
-        // 7. DEPLOY
+        // 7. DEPLOY CONTAINER
         // ==========================================
         stage('Deploy') {
             steps {
@@ -239,23 +252,24 @@ pipeline {
                     echo DEPLOYING APPLICATION
                     echo ==============================
 
-                    echo Stopping old container if it exists...
+                    echo Stopping old container...
 
-                    docker stop %CONTAINER_NAME% >nul 2>&1
+                    docker stop ai-recipe-generator >nul 2>&1
 
-                    echo Removing old container if it exists...
+                    echo Removing old container...
 
-                    docker rm %CONTAINER_NAME% >nul 2>&1
+                    docker rm ai-recipe-generator >nul 2>&1
 
                     echo.
                     echo Starting new container...
 
                     docker run -d ^
-                        --name %CONTAINER_NAME% ^
-                        -p %APP_PORT%:%APP_PORT% ^
+                        --name ai-recipe-generator ^
+                        -p 5000:5000 ^
                         %DOCKER_IMAGE%:latest
 
                     if %ERRORLEVEL% NEQ 0 (
+                        echo.
                         echo Docker container deployment failed.
                         exit /b 1
                     )
@@ -265,17 +279,16 @@ pipeline {
                     echo DEPLOYMENT SUCCESSFUL
                     echo ==============================
 
-                    echo.
-                    echo Running containers:
                     docker ps
 
                     echo.
-                    echo Application available at:
-                    echo http://localhost:%APP_PORT%
+                    echo Application is available at:
+                    echo http://localhost:5000
                 '''
             }
         }
     }
+
 
     // ==========================================
     // POST ACTIONS
@@ -289,7 +302,6 @@ pipeline {
             echo "Build #${BUILD_NUMBER} completed successfully."
             echo "Docker image: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
             echo "Docker image: ${DOCKER_IMAGE}:latest"
-            echo "Application: http://localhost:${APP_PORT}"
             echo '=========================================='
         }
 
