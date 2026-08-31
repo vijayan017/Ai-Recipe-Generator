@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Server Error{% endblock %}
+{% block auth_content %}
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; background: var(--cream);">
+  <i class="bi bi-exclamation-triangle" style="font-size:3rem; color: var(--danger);"></i>
+  <h2>500 - Something Went Wrong</h2>
+  <p style="color: var(--ink-600);">Please try again in a moment.</p>
+  <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}" class="btn btn-brand">Go Home</a>
+</div>
+{% endblock %}

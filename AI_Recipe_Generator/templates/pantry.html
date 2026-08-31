@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Pantry - RecipeAI{% endblock %}
+{% block page_title %}My Pantry{% endblock %}
+{% block page_subtitle %}Keep track of what you have on hand.{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="profile-card" style="max-width: none;">
+      <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Add Ingredient</h5>
+      <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.ingredient.label(class="form-label") }}
+          {{ form.ingredient(class="form-control", placeholder="e.g. Tomatoes") }}
+        </div>
+        <div class="mb-3">
+          {{ form.category.label(class="form-label") }}
+          {{ form.category(class="form-select") }}
+        </div>
+        <div class="mb-3">
+          {{ form.quantity.label(class="form-label") }}
+          {{ form.quantity(class="form-control", placeholder="e.g. 500g (optional)") }}
+        </div>
+        <button type="submit" class="btn btn-brand w-100"><i class="bi bi-basket2-fill"></i> Add to Pantry</button>
+      </form>
+
+      <hr class="my-4">
+      <h6 class="mb-2" style="color: var(--ink-600); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.03em;">Quick Add</h6>
+      <div class="quick-chips">
+        {% for q, cat in [('Onion','Vegetables'),('Garlic','Vegetables'),('Tomato','Vegetables'),('Rice','Grains'),
+                            ('Eggs','Protein'),('Milk','Dairy'),('Chicken','Protein'),('Paneer','Dairy'),
+                            ('Potato','Vegetables'),('Salt','Spices')] %}
+        <div class="quick-chip" onclick="quickAdd('{{ q }}', '{{ cat }}')"><i class="bi bi-plus"></i> {{ q }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <form method="GET" class="pantry-toolbar">
+      <input type="text" name="search" class="form-control" placeholder="Search ingredients..." value="{{ search }}">
+      <select name="category" class="form-select" onchange="this.form.submit()">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+        <option value="{{ c }}" {{ 'selected' if c == category_filter }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-brand"><i class="bi bi-search"></i> Search</button>
+      {% if search or category_filter %}
+      <a href="{{ url_for('pantry') }}" class="btn btn-link text-muted">Clear</a>
+      {% endif %}
+    </form>
+
+    <div class="ingredient-grid" id="ingredientGrid">
+      {% for item in items %}
+      <div class="ingredient-card" id="pantry-item-{{ item.id }}">
+        <div class="icon-box"><i class="bi bi-egg-fried"></i></div>
+        <div class="info">
+          <h5>{{ item.ingredient }}</h5>
+          <small>{{ item.category }}{% if item.quantity %} · {{ item.quantity }}{% endif %}</small>
+        </div>
+        <button class="delete-btn" onclick="deletePantryItem({{ item.id }})" title="Remove"><i class="bi bi-trash"></i></button>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if not items %}
+    <div class="empty-state">
+      <i class="bi bi-basket2"></i>
+      <h4>Your pantry is empty</h4>
+      <p>Add ingredients using the form or quick-add chips to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

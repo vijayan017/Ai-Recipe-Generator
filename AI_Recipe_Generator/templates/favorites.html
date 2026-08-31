@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_recipe_card.html" import recipe_card %}
+{% block title %}Favourites - RecipeAI{% endblock %}
+{% block page_title %}Favourites{% endblock %}
+{% block page_subtitle %}Your saved recipes, all in one place.{% endblock %}
+
+{% block content %}
+<form method="GET" class="pantry-toolbar">
+  <input type="text" name="search" class="form-control" placeholder="Search favourites..." value="{{ search }}" style="max-width: 320px;">
+  <button type="submit" class="btn btn-outline-brand"><i class="bi bi-search"></i> Search</button>
+  {% if search %}<a href="{{ url_for('favorites') }}" class="btn btn-link text-muted">Clear</a>{% endif %}
+</form>
+
+<div class="recipe-grid">
+  {% for r in recipes %}
+    {{ recipe_card(r) }}
+  {% endfor %}
+</div>
+
+{% if not recipes %}
+<div class="empty-state">
+  <i class="bi bi-heart"></i>
+  <h4>No favourites yet</h4>
+  <p>Tap the heart icon on any recipe to save it here.</p>
+</div>
+{% endif %}
+{% endblock %}

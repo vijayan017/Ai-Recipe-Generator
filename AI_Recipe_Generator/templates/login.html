@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Log In - RecipeAI{% endblock %}
+{% block auth_content %}
+<div class="auth-wrapper">
+  <div class="auth-hero">
+    <div class="brand-mark"><i class="bi bi-egg-fried"></i> RecipeAI</div>
+    <h1>Turn what's in your pantry into tonight's dinner.</h1>
+    <p>Log your ingredients, tell us your goals, and let AI plan meals that actually use what you already have.</p>
+    <div class="hero-tags">
+      <span><i class="bi bi-stars"></i> AI-generated recipes</span>
+      <span><i class="bi bi-basket2"></i> Pantry-aware</span>
+      <span><i class="bi bi-calendar-week"></i> Weekly planning</span>
+    </div>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-card">
+      <h2 class="display-font">Welcome back</h2>
+      <p class="subtitle">Log in to continue cooking smarter.</p>
+
+      <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.email.label(class="form-label") }}
+          {{ form.email(class="form-control", placeholder="you@example.com") }}
+          {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          {{ form.password.label(class="form-label") }}
+          {{ form.password(class="form-control", placeholder="••••••••") }}
+          {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3 form-check">
+          {{ form.remember(class="form-check-input") }}
+          {{ form.remember.label(class="form-check-label") }}
+        </div>
+        <button type="submit" class="btn btn-brand w-100">Log In</button>
+      </form>
+
+      <div class="auth-switch">
+        Don't have an account? <a href="{{ url_for('register') }}">Create one</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

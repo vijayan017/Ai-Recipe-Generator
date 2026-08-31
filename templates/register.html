@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Sign Up - RecipeAI{% endblock %}
+{% block auth_content %}
+<div class="auth-wrapper">
+  <div class="auth-hero">
+    <div class="brand-mark"><i class="bi bi-egg-fried"></i> RecipeAI</div>
+    <h1>Join RecipeAI and never wonder "what's for dinner" again.</h1>
+    <p>Create your free account to start building your pantry and generating personalised recipes.</p>
+    <div class="hero-tags">
+      <span><i class="bi bi-heart"></i> Save favourites</span>
+      <span><i class="bi bi-graph-up"></i> Track calories</span>
+      <span><i class="bi bi-shield-check"></i> Allergy aware</span>
+    </div>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-card">
+      <h2 class="display-font">Create your account</h2>
+      <p class="subtitle">It only takes a minute.</p>
+
+      <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.name.label(class="form-label") }}
+          {{ form.name(class="form-control", placeholder="Jane Doe") }}
+          {% for error in form.name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          {{ form.email.label(class="form-label") }}
+          {{ form.email(class="form-control", placeholder="you@example.com") }}
+          {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          {{ form.password.label(class="form-label") }}
+          {{ form.password(class="form-control", placeholder="At least 6 characters") }}
+          {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          {{ form.confirm_password.label(class="form-label") }}
+          {{ form.confirm_password(class="form-control", placeholder="Re-enter password") }}
+          {% for error in form.confirm_password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <button type="submit" class="btn btn-brand w-100">Create Account</button>
+      </form>
+
+      <div class="auth-switch">
+        Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% macro recipe_card(r) %}
+<div class="recipe-card" data-recipe-id="{{ r.id }}">
+  <div class="thumb">
+    <i class="bi bi-egg-fried" style="color: var(--green-700); opacity:0.55;"></i>
+    <button class="fav-toggle {{ 'active' if r.is_favorite }}" onclick="toggleFavorite({{ r.id }}, this)" title="Toggle favourite">
+      <i class="bi {{ 'bi-heart-fill' if r.is_favorite else 'bi-heart' }}"></i>
+    </button>
+    <div class="match-ring" title="AI ingredient match">
+      <svg width="54" height="54" viewBox="0 0 54 54">
+        <circle cx="27" cy="27" r="23" fill="none" stroke="#E8F5EE" stroke-width="5"></circle>
+        <circle cx="27" cy="27" r="23" fill="none" stroke="#3CB878" stroke-width="5"
+          stroke-dasharray="{{ (r.match_percent / 100 * 144.5)|round(1) }} 144.5"
+          stroke-linecap="round" transform="rotate(-90 27 27)"></circle>
+      </svg>
+      <span>{{ r.match_percent }}%</span>
+    </div>
+  </div>
+  <div class="body">
+    <h4>{{ r.title }}</h4>
+    <p class="desc">{{ r.description[:90] }}{% if r.description|length > 90 %}…{% endif %}</p>
+    <div class="meta-row">
+      <span class="meta-pill"><i class="bi bi-clock"></i> {{ r.cook_time }} min</span>
+      <span class="meta-pill amber"><i class="bi bi-fire"></i> {{ r.calories }} kcal</span>
+      <span class="meta-pill"><i class="bi bi-bar-chart"></i> {{ r.difficulty }}</span>
+      <span class="meta-pill"><i class="bi bi-geo-alt"></i> {{ r.cuisine }}</span>
+    </div>
+    <div class="ing-row">
+      <b>Have:</b> {{ r.ingredients[:3]|join(', ') }}{% if r.ingredients|length > 3 %} +{{ r.ingredients|length - 3 }} more{% endif %}
+    </div>
+    {% if r.missing_ingredients %}
+    <div class="ing-row">
+      <span class="missing">Need:</span> {{ r.missing_ingredients|join(', ') }}
+    </div>
+    {% endif %}
+    <div class="card-actions">
+      <a href="{{ url_for('recipe_details', recipe_id=r.id) }}" class="btn btn-outline-brand"><i class="bi bi-eye"></i> View</a>
+      <button class="btn btn-brand" onclick="openPlanModal({{ r.id }}, '{{ r.title|e }}')"><i class="bi bi-calendar-plus"></i> Save</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}

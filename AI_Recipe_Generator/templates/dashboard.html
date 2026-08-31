@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "_recipe_card.html" import recipe_card %}
+{% block title %}Dashboard - RecipeAI{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Hi {{ current_user.name.split(' ')[0] }}, let's find something delicious to cook.{% endblock %}
+
+{% block content %}
+<div class="hero-banner">
+  <h2><i class="bi bi-stars"></i> AI Recipe Generator</h2>
+  <p>Pick a meal type and let the AI build recipes from the {{ pantry_count }} ingredient{{ 's' if pantry_count != 1 else '' }} in your pantry.</p>
+
+  <div class="meal-filters" id="mealFilters">
+    {% for m in ['Breakfast', 'Lunch', 'Dinner', 'Snack'] %}
+    <div class="meal-filter-chip {{ 'active' if m == active_meal_type }}" data-meal="{{ m }}">{{ m }}</div>
+    {% endfor %}
+  </div>
+
+  <button class="btn btn-generate" id="generateBtn"><i class="bi bi-magic"></i> Generate Recipes</button>
+</div>
+
+<div class="section-head">
+  <h3><i class="bi bi-collection"></i> {{ active_meal_type }} Recipes</h3>
+</div>
+
+<div class="recipe-grid" id="recipeGrid">
+  {% for r in recipes %}
+    {{ recipe_card(r) }}
+  {% endfor %}
+</div>
+
+{% if not recipes %}
+<div class="empty-state" id="emptyState">
+  <i class="bi bi-basket"></i>
+  <h4>No recipes yet for {{ active_meal_type }}</h4>
+  <p>Click "Generate Recipes" above to get AI-powered ideas from your pantry.</p>
+</div>
+{% endif %}
+
+<!-- Save to planner modal -->
+<div class="modal fade" id="planModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius: var(--radius-lg);">
+      <div class="modal-header">
+        <h5 class="modal-title">Add to Meal Planner</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="planRecipeName" style="font-weight:600;"></p>
+        <div class="mb-3">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" id="planDate">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Meal Type</label>
+          <select class="form-select" id="planMealType">
+            <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-brand w-100" id="confirmPlanBtn"><i class="bi bi-check2"></i> Add to Planner</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const DASHBOARD_ACTIVE_MEAL = "{{ active_meal_type }}";
+</script>
+{% endblock %}

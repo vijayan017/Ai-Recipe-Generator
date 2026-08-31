@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Profile - RecipeAI{% endblock %}
+{% block page_title %}Profile{% endblock %}
+{% block page_subtitle %}Manage your account and cooking preferences.{% endblock %}
+
+{% block content %}
+<div class="profile-card">
+  <div class="profile-avatar">{{ current_user.name[:1].upper() }}</div>
+  <h4 style="margin-bottom:2px;">{{ current_user.name }}</h4>
+  <p style="color: var(--ink-600); margin-bottom:24px;">{{ current_user.email }}</p>
+
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+      {{ form.name.label(class="form-label") }}
+      {{ form.name(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.diet.label(class="form-label") }}
+      {{ form.diet(class="form-select") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.allergies.label(class="form-label") }}
+      {{ form.allergies(class="form-control", rows="2", placeholder="e.g. peanuts, shellfish") }}
+      <small class="text-muted">Separate multiple allergies with commas.</small>
+    </div>
+
+    <div class="mb-4">
+      {{ form.calorie_goal.label(class="form-label") }}
+      {{ form.calorie_goal(class="form-control") }}
+    </div>
+
+    <button type="submit" class="btn btn-brand"><i class="bi bi-check2-circle"></i> Save Preferences</button>
+  </form>
+</div>
+{% endblock %}

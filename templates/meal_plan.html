@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Meal Planner - RecipeAI{% endblock %}
+{% block page_title %}Meal Planner{% endblock %}
+{% block page_subtitle %}Plan your week and stay on top of your calorie goal.{% endblock %}
+
+{% block content %}
+<div class="calorie-card">
+  <div class="progress-ring-wrap">
+    <svg width="96" height="96" viewBox="0 0 96 96">
+      <circle cx="48" cy="48" r="40" fill="none" stroke="#E8F5EE" stroke-width="9"></circle>
+      <circle cx="48" cy="48" r="40" fill="none" stroke="#3CB878" stroke-width="9"
+        stroke-dasharray="{{ (progress_percent/100*251.3)|round(1) }} 251.3"
+        stroke-linecap="round" transform="rotate(-90 48 48)"></circle>
+    </svg>
+    <div class="center-label">
+      <strong>{{ progress_percent }}%</strong>
+      <span>of goal</span>
+    </div>
+  </div>
+  <div>
+    <h3 style="margin-bottom:4px;">Today's Calories</h3>
+    <p style="color: var(--ink-600); margin:0;">
+      <strong style="color: var(--green-800); font-size:1.2rem;">{{ todays_calories }}</strong> / {{ calorie_goal }} kcal consumed
+    </p>
+  </div>
+</div>
+
+<div class="section-head">
+  <h3><i class="bi bi-calendar-week"></i> This Week</h3>
+</div>
+
+<div class="week-grid">
+  {% for d in week_dates %}
+  <div class="day-column {{ 'is-today' if d == today }}">
+    <div class="day-label">{{ d.strftime('%a') }}</div>
+    <div class="day-date">{{ d.strftime('%b %d') }}</div>
+
+    {% for plan in plan_by_day.get(d.isoformat(), []) %}
+    <div class="plan-chip" id="plan-{{ plan.id }}">
+      <button class="remove-plan" onclick="removeMealPlan({{ plan.id }})"><i class="bi bi-x"></i></button>
+      <div class="meal-type-tag">{{ plan.meal_type }}</div>
+      <div>{{ plan.recipe.title if plan.recipe else 'Recipe' }}</div>
+    </div>
+    {% endfor %}
+
+    <button class="add-plan-btn" onclick="openAddPlanModal('{{ d.isoformat() }}')"><i class="bi bi-plus"></i> Add meal</button>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-head" style="margin-top:32px;">
+  <h3><i class="bi bi-journal-bookmark"></i> Pick From Your Recipes</h3>
+</div>
+<div class="recipe-grid">
+  {% for r in recent_recipes %}
+  <div class="ingredient-card" style="cursor:pointer;" onclick="openAddPlanModal(null, {{ r.id }}, '{{ r.title|e }}')">
+    <div class="icon-box"><i class="bi bi-journal-text"></i></div>
+    <div class="info">
+      <h5>{{ r.title }}</h5>
+      <small>{{ r.meal_type }} · {{ r.calories }} kcal</small>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% if not recent_recipes %}
+<p style="color: var(--ink-600);">Generate some recipes from the dashboard first, then add them here.</p>
+{% endif %}
+
+<!-- Add to planner modal -->
+<div class="modal fade" id="addPlanModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius: var(--radius-lg);">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Meal to Plan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Recipe</label>
+          <select class="form-select" id="planRecipeSelect">
+            {% for r in recent_recipes %}
+            <option value="{{ r.id }}" data-title="{{ r.title|e }}">{{ r.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" id="addPlanDate">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Meal Type</label>
+          <select class="form-select" id="addPlanMealType">
+            <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-brand w-100" id="confirmAddPlanBtn"><i class="bi bi-check2"></i> Add to Plan</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
