@@ -7,13 +7,36 @@ pipeline {
         DOCKERHUB_REPO = "vijayan017/ai-recipe-generator"
         DOCKERHUB_CRED = "dockerhub-credentials"
         CONTAINER_NAME = "ai-recipe-generator-app"
+
+        // Python installed on your Windows PC
+        PYTHON_EXE     = "C:\\Users\\Vijayan\\AppData\\Local\\Python\\bin\\python.exe"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
+                echo "Checking out source code..."
                 checkout scm
+            }
+        }
+
+        stage('Check Tools') {
+            steps {
+                bat '''
+                    echo ==============================
+                    echo Checking Python
+                    echo ==============================
+
+                    "%PYTHON_EXE%" --version
+
+                    echo.
+                    echo ==============================
+                    echo Checking Docker
+                    echo ==============================
+
+                    docker --version
+                '''
             }
         }
 
@@ -21,8 +44,16 @@ pipeline {
             steps {
                 dir('AI_Recipe_Generator') {
                     bat '''
-                        python -m venv venv
+                        echo Creating Python virtual environment...
+
+                        "%PYTHON_EXE%" -m venv venv
+
+                        echo Installing/upgrading pip...
+
                         venv\\Scripts\\python.exe -m pip install --upgrade pip
+
+                        echo Installing project dependencies...
+
                         venv\\Scripts\\python.exe -m pip install -r requirements.txt
                     '''
                 }
@@ -33,9 +64,19 @@ pipeline {
             steps {
                 dir('AI_Recipe_Generator') {
                     bat '''
+                        echo Installing Flake8...
+
                         venv\\Scripts\\python.exe -m pip install flake8
+
+                        echo Running Flake8...
+
                         venv\\Scripts\\python.exe -m flake8 . --max-line-length=120 --exclude=venv
-                        if %ERRORLEVEL% NEQ 0 exit /b 0
+
+                        if %ERRORLEVEL% NEQ 0 (
+                            echo Lint warnings/errors found.
+                            echo Continuing pipeline...
+                            exit /b 0
+                        )
                     '''
                 }
             }
@@ -45,10 +86,17 @@ pipeline {
             steps {
                 dir('AI_Recipe_Generator') {
                     bat '''
+                        echo Installing PyTest...
+
                         venv\\Scripts\\python.exe -m pip install pytest
+
+                        echo Running tests...
+
                         venv\\Scripts\\python.exe -m pytest
+
                         if %ERRORLEVEL% NEQ 0 (
-                            echo No tests found or tests failed - continuing pipeline
+                            echo No tests found or some tests failed.
+                            echo Continuing pipeline...
                             exit /b 0
                         )
                     '''
@@ -60,6 +108,8 @@ pipeline {
             steps {
                 dir('AI_Recipe_Generator') {
                     script {
+                        echo "Building Docker image..."
+
                         dockerImage = docker.build(
                             "${DOCKERHUB_REPO}:${IMAGE_TAG}",
                             "."
@@ -72,11 +122,15 @@ pipeline {
         stage('Push to DockerHub') {
             steps {
                 script {
+                    echo "Logging into Docker Hub and pushing image..."
+
                     docker.withRegistry(
                         'https://registry.hub.docker.com',
                         "${DOCKERHUB_CRED}"
                     ) {
+
                         dockerImage.push("${IMAGE_TAG}")
+
                         dockerImage.push("latest")
                     }
                 }
@@ -86,29 +140,66 @@ pipeline {
         stage('Deploy') {
             steps {
                 bat '''
-                    docker stop %CONTAINER_NAME% 2>nul || exit /b 0
-                    docker rm %CONTAINER_NAME% 2>nul || exit /b 0
+                    echo ==============================
+                    echo Stopping old container
+                    echo ==============================
 
-                    docker run -d --name %CONTAINER_NAME% -p 5000:5000 %DOCKERHUB_REPO%:%IMAGE_TAG%
+                    docker stop %CONTAINER_NAME% 2>nul
+                    if %ERRORLEVEL% NEQ 0 (
+                        echo Container was not running.
+                    )
+
+                    echo.
+                    echo ==============================
+                    echo Removing old container
+                    echo ==============================
+
+                    docker rm %CONTAINER_NAME% 2>nul
+                    if %ERRORLEVEL% NEQ 0 (
+                        echo Old container does not exist.
+                    )
+
+                    echo.
+                    echo ==============================
+                    echo Starting new container
+                    echo ==============================
+
+                    docker run -d ^
+                        --name %CONTAINER_NAME% ^
+                        -p 5000:5000 ^
+                        %DOCKERHUB_REPO%:%IMAGE_TAG%
+
+                    echo.
+                    echo ==============================
+                    echo Container Status
+                    echo ==============================
+
+                    docker ps
                 '''
             }
         }
     }
 
     post {
+
         success {
-            echo "Build #${env.BUILD_NUMBER} succeeded."
-            echo "${env.DOCKERHUB_REPO}:${env.IMAGE_TAG} deployed successfully."
+            echo "=========================================="
+            echo "BUILD SUCCESSFUL"
+            echo "=========================================="
+            echo "Build Number : ${env.BUILD_NUMBER}"
+            echo "Docker Image : ${env.DOCKERHUB_REPO}:${env.IMAGE_TAG}"
+            echo "Container     : ${env.CONTAINER_NAME}"
+            echo "Application   : http://localhost:5000"
+            echo "=========================================="
         }
 
         failure {
-            echo "Build #${env.BUILD_NUMBER} failed. Check logs above."
-        }
-
-        always {
-            bat '''
-                docker system prune -f
-            '''
+            echo "=========================================="
+            echo "BUILD FAILED"
+            echo "=========================================="
+            echo "Build #${env.BUILD_NUMBER} failed."
+            echo "Please check the console output above."
+            echo "=========================================="
         }
     }
 }
