@@ -1,51 +1,44 @@
 pipeline {
+
     agent any
 
     environment {
-        IMAGE_NAME     = "ai-recipe-generator"
-        IMAGE_TAG      = "${BUILD_NUMBER}"
-        DOCKERHUB_REPO = "vijayan12/ai-recipe-generator"
-        DOCKERHUB_CRED = "dockerhub-credentials"
-        CONTAINER_NAME = "ai-recipe-generator-app"
-
-        PYTHON_EXE = "C:\\Users\\Vijayan\\AppData\\Local\\Python\\bin\\python.exe"
+        DOCKER_IMAGE = 'vijayan12/ai-recipe-generator'
+        DOCKER_CREDENTIALS = 'dockerhub-credentials'
+        CONTAINER_NAME = 'ai-recipe-generator'
+        APP_PORT = '5000'
+        PYTHON = 'C:\\Users\\Vijayan\\AppData\\Local\\Python\\bin\\python.exe'
     }
 
     stages {
 
-        /*
-         * Jenkins automatically checks out the repository
-         * because this is a Pipeline job connected to SCM.
-         */
-
+        // ==========================================
+        // 1. CHECK TOOLS
+        // ==========================================
         stage('Check Tools') {
             steps {
                 bat '''
                     echo ==============================
                     echo CHECKING PYTHON
                     echo ==============================
-
-                    "%PYTHON_EXE%" --version
+                    "%PYTHON%" --version
 
                     echo.
                     echo ==============================
                     echo CHECKING GIT
                     echo ==============================
-
-                    git --version
+                    "C:\\Program Files\\Git\\cmd\\git.exe" --version
 
                     echo.
                     echo ==============================
                     echo CHECKING DOCKER
                     echo ==============================
-
                     docker --version
 
                     echo.
                     echo ==============================
                     echo CHECKING DOCKER ENGINE
                     echo ==============================
-
                     docker info >nul 2>&1
 
                     if %ERRORLEVEL% NEQ 0 (
@@ -58,6 +51,9 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // 2. SET UP PYTHON
+        // ==========================================
         stage('Set Up Python') {
             steps {
                 dir('AI_Recipe_Generator') {
@@ -65,22 +61,20 @@ pipeline {
                         echo ==============================
                         echo SETTING UP PYTHON
                         echo ==============================
-
+                        
                         if exist venv (
                             echo Virtual environment already exists.
                         ) else (
                             echo Creating virtual environment...
-                            "%PYTHON_EXE%" -m venv venv
+                            "%PYTHON%" -m venv venv
                         )
 
                         echo.
                         echo Upgrading pip...
-
                         venv\\Scripts\\python.exe -m pip install --upgrade pip
 
                         echo.
                         echo Installing requirements...
-
                         venv\\Scripts\\python.exe -m pip install -r requirements.txt
 
                         echo.
@@ -90,6 +84,9 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // 3. LINT / BASIC CHECKS
+        // ==========================================
         stage('Lint / Basic Checks') {
             steps {
                 dir('AI_Recipe_Generator') {
@@ -109,12 +106,15 @@ pipeline {
                             exit /b 0
                         )
 
-                        echo Lint completed successfully.
+                        echo Lint check completed successfully.
                     '''
                 }
             }
         }
 
+        // ==========================================
+        // 4. RUN TESTS
+        // ==========================================
         stage('Run Tests') {
             steps {
                 dir('AI_Recipe_Generator') {
@@ -140,6 +140,9 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // 5. BUILD DOCKER IMAGE
+        // ==========================================
         stage('Build Docker Image') {
             steps {
                 dir('AI_Recipe_Generator') {
@@ -149,8 +152,8 @@ pipeline {
                         echo ==============================
 
                         docker build ^
-                            -t %DOCKERHUB_REPO%:%IMAGE_TAG% ^
-                            -t %DOCKERHUB_REPO%:latest ^
+                            -t %DOCKER_IMAGE%:%BUILD_NUMBER% ^
+                            -t %DOCKER_IMAGE%:latest ^
                             .
 
                         if %ERRORLEVEL% NEQ 0 (
@@ -163,18 +166,20 @@ pipeline {
 
                         echo.
                         echo Available images:
-
-                        docker images %DOCKERHUB_REPO%
+                        docker images %DOCKER_IMAGE%
                     '''
                 }
             }
         }
 
+        // ==========================================
+        // 6. PUSH TO DOCKER HUB
+        // ==========================================
         stage('Push to DockerHub') {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: "${DOCKERHUB_CRED}",
+                        credentialsId: "${DOCKER_CREDENTIALS}",
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
@@ -191,16 +196,17 @@ pipeline {
                             exit /b 1
                         )
 
+                        echo Docker Hub login successful.
+
                         echo.
                         echo ==============================
-                        echo PUSHING VERSIONED IMAGE
+                        echo PUSHING VERSION IMAGE
                         echo ==============================
 
-                        docker push %DOCKERHUB_REPO%:%IMAGE_TAG%
+                        docker push %DOCKER_IMAGE%:%BUILD_NUMBER%
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo Failed to push versioned image.
-                            docker logout
+                            echo Failed to push version image.
                             exit /b 1
                         )
 
@@ -209,23 +215,23 @@ pipeline {
                         echo PUSHING LATEST IMAGE
                         echo ==============================
 
-                        docker push %DOCKERHUB_REPO%:latest
+                        docker push %DOCKER_IMAGE%:latest
 
                         if %ERRORLEVEL% NEQ 0 (
                             echo Failed to push latest image.
-                            docker logout
                             exit /b 1
                         )
 
                         echo.
                         echo Docker images pushed successfully.
-
-                        docker logout
                     '''
                 }
             }
         }
 
+        // ==========================================
+        // 7. DEPLOY
+        // ==========================================
         stage('Deploy') {
             steps {
                 bat '''
@@ -233,13 +239,11 @@ pipeline {
                     echo DEPLOYING APPLICATION
                     echo ==============================
 
-                    echo.
-                    echo Stopping old container...
+                    echo Stopping old container if it exists...
 
                     docker stop %CONTAINER_NAME% >nul 2>&1
 
-                    echo.
-                    echo Removing old container...
+                    echo Removing old container if it exists...
 
                     docker rm %CONTAINER_NAME% >nul 2>&1
 
@@ -248,57 +252,58 @@ pipeline {
 
                     docker run -d ^
                         --name %CONTAINER_NAME% ^
-                        -p 5000:5000 ^
-                        %DOCKERHUB_REPO%:%IMAGE_TAG%
+                        -p %APP_PORT%:%APP_PORT% ^
+                        %DOCKER_IMAGE%:latest
 
                     if %ERRORLEVEL% NEQ 0 (
-                        echo Docker container failed to start.
+                        echo Docker container deployment failed.
                         exit /b 1
                     )
 
                     echo.
                     echo ==============================
-                    echo CONTAINER RUNNING
+                    echo DEPLOYMENT SUCCESSFUL
                     echo ==============================
 
+                    echo.
+                    echo Running containers:
                     docker ps
 
                     echo.
-                    echo ==============================
-                    echo APPLICATION
-                    echo ==============================
-
-                    echo Application URL:
-                    echo http://localhost:5000
+                    echo Application available at:
+                    echo http://localhost:%APP_PORT%
                 '''
             }
         }
     }
 
+    // ==========================================
+    // POST ACTIONS
+    // ==========================================
     post {
 
         success {
-            echo "=========================================="
-            echo "BUILD SUCCESSFUL"
-            echo "=========================================="
-            echo "Build Number : ${BUILD_NUMBER}"
-            echo "Docker Image : ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-            echo "Container    : ${CONTAINER_NAME}"
-            echo "Application  : http://localhost:5000"
-            echo "=========================================="
+            echo '=========================================='
+            echo 'BUILD SUCCESSFUL'
+            echo '=========================================='
+            echo "Build #${BUILD_NUMBER} completed successfully."
+            echo "Docker image: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+            echo "Docker image: ${DOCKER_IMAGE}:latest"
+            echo "Application: http://localhost:${APP_PORT}"
+            echo '=========================================='
         }
 
         failure {
-            echo "=========================================="
-            echo "BUILD FAILED"
-            echo "=========================================="
+            echo '=========================================='
+            echo 'BUILD FAILED'
+            echo '=========================================='
             echo "Build #${BUILD_NUMBER} failed."
-            echo "Check the stage that failed above."
-            echo "=========================================="
+            echo 'Check the stage that failed above.'
+            echo '=========================================='
         }
 
         always {
-            echo "Pipeline execution completed."
+            echo 'Pipeline execution completed.'
         }
     }
 }
