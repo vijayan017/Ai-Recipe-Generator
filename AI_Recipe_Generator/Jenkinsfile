@@ -4,8 +4,8 @@ pipeline {
     environment {
         IMAGE_NAME     = "ai-recipe-generator"
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
-        DOCKERHUB_REPO = "your-dockerhub-username/ai-recipe-generator"   // <-- change this
-        DOCKERHUB_CRED = "dockerhub-credentials"                        // <-- Jenkins credentials ID
+        DOCKERHUB_REPO = "vijayan017/ai-recipe-generator"
+        DOCKERHUB_CRED = "dockerhub-credentials"
         CONTAINER_NAME = "ai-recipe-generator-app"
     }
 
@@ -19,39 +19,52 @@ pipeline {
 
         stage('Set Up Python') {
             steps {
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
+                dir('AI_Recipe_Generator') {
+                    bat '''
+                        python -m venv venv
+                        venv\\Scripts\\python.exe -m pip install --upgrade pip
+                        venv\\Scripts\\python.exe -m pip install -r requirements.txt
+                    '''
+                }
             }
         }
 
         stage('Lint / Basic Checks') {
             steps {
-                sh '''
-                    . venv/bin/activate
-                    pip install flake8
-                    flake8 . --max-line-length=120 --exclude=venv || true
-                '''
+                dir('AI_Recipe_Generator') {
+                    bat '''
+                        venv\\Scripts\\python.exe -m pip install flake8
+                        venv\\Scripts\\python.exe -m flake8 . --max-line-length=120 --exclude=venv
+                        if %ERRORLEVEL% NEQ 0 exit /b 0
+                    '''
+                }
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh '''
-                    . venv/bin/activate
-                    pip install pytest
-                    pytest || echo "No tests found, skipping"
-                '''
+                dir('AI_Recipe_Generator') {
+                    bat '''
+                        venv\\Scripts\\python.exe -m pip install pytest
+                        venv\\Scripts\\python.exe -m pytest
+                        if %ERRORLEVEL% NEQ 0 (
+                            echo No tests found or tests failed - continuing pipeline
+                            exit /b 0
+                        )
+                    '''
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                dir('AI_Recipe_Generator') {
+                    script {
+                        dockerImage = docker.build(
+                            "${DOCKERHUB_REPO}:${IMAGE_TAG}",
+                            "."
+                        )
+                    }
                 }
             }
         }
@@ -59,7 +72,10 @@ pipeline {
         stage('Push to DockerHub') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', "${DOCKERHUB_CRED}") {
+                    docker.withRegistry(
+                        'https://registry.hub.docker.com',
+                        "${DOCKERHUB_CRED}"
+                    ) {
                         dockerImage.push("${IMAGE_TAG}")
                         dockerImage.push("latest")
                     }
@@ -69,15 +85,11 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh '''
-                    docker stop ${CONTAINER_NAME} || true
-                    docker rm ${CONTAINER_NAME} || true
-                    docker run -d \
-                        --name ${CONTAINER_NAME} \
-                        -p 5000:5000 \
-                        -e SECRET_KEY=${SECRET_KEY} \
-                        -e GEMINI_API_KEY=${GEMINI_API_KEY} \
-                        ${IMAGE_NAME}:${IMAGE_TAG}
+                bat '''
+                    docker stop %CONTAINER_NAME% 2>nul || exit /b 0
+                    docker rm %CONTAINER_NAME% 2>nul || exit /b 0
+
+                    docker run -d --name %CONTAINER_NAME% -p 5000:5000 %DOCKERHUB_REPO%:%IMAGE_TAG%
                 '''
             }
         }
@@ -85,13 +97,18 @@ pipeline {
 
     post {
         success {
-            echo "Build #${env.BUILD_NUMBER} succeeded — ${IMAGE_NAME}:${IMAGE_TAG} deployed."
+            echo "Build #${env.BUILD_NUMBER} succeeded."
+            echo "${env.DOCKERHUB_REPO}:${env.IMAGE_TAG} deployed successfully."
         }
+
         failure {
             echo "Build #${env.BUILD_NUMBER} failed. Check logs above."
         }
+
         always {
-            sh 'docker system prune -f || true'
+            bat '''
+                docker system prune -f
+            '''
         }
     }
 }
