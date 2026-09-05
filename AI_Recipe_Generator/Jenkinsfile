@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -18,19 +19,27 @@ pipeline {
                 echo 'Checking required tools...'
 
                 bat '''
-                    echo Checking Python...
+                    echo ========================================
+                    echo Checking Python
+                    echo ========================================
                     "%PYTHON%" --version
 
                     echo.
-                    echo Checking Git...
+                    echo ========================================
+                    echo Checking Git
+                    echo ========================================
                     "%GIT%" --version
 
                     echo.
-                    echo Checking Docker...
+                    echo ========================================
+                    echo Checking Docker
+                    echo ========================================
                     docker --version
 
                     echo.
-                    echo Checking Docker Engine...
+                    echo ========================================
+                    echo Checking Docker Engine
+                    echo ========================================
                     docker info
                 '''
             }
@@ -47,13 +56,21 @@ pipeline {
 
                     call venv\\Scripts\\activate.bat
 
+                    echo.
+                    echo Python version:
                     python --version
+
+                    echo.
+                    echo Upgrading pip:
                     python -m pip install --upgrade pip
+
+                    echo.
+                    echo Installing project dependencies:
 
                     if exist requirements.txt (
                         python -m pip install -r requirements.txt
                     ) else (
-                        echo requirements.txt not found!
+                        echo ERROR: requirements.txt not found.
                         exit /b 1
                     )
                 '''
@@ -62,33 +79,59 @@ pipeline {
 
         stage('Lint / Basic Checks') {
             steps {
-                echo 'Running basic code checks...'
+                echo 'Running Flake8 code checks...'
 
                 bat '''
                     call venv\\Scripts\\activate.bat
 
                     python -m pip install flake8
 
-                    flake8 . --exclude=venv,__pycache__,.git --count --statistics || echo Flake8 warnings found - continuing pipeline.
+                    echo.
+                    echo ========================================
+                    echo FLAKE8 RESULTS
+                    echo ========================================
+
+                    flake8 . --exclude=venv,__pycache__,.git --count --statistics
+
+                    echo.
+                    echo ========================================
+                    echo Flake8 completed.
+                    echo Lint warnings will not stop deployment.
+                    echo ========================================
+
+                    exit /b 0
                 '''
             }
         }
 
         stage('Run Tests') {
             steps {
-                echo 'Running tests...'
+                echo 'Running application tests...'
 
                 bat '''
                     call venv\\Scripts\\activate.bat
 
                     python -m pip install pytest
 
+                    echo.
+                    echo ========================================
+                    echo RUNNING TESTS
+                    echo ========================================
+
                     if exist tests (
                         pytest -v
+
+                        if errorlevel 1 (
+                            echo Tests failed.
+                            exit /b 1
+                        )
                     ) else (
                         echo No tests directory found.
                         echo Skipping pytest.
                     )
+
+                    echo.
+                    echo Tests stage completed.
                 '''
             }
         }
@@ -98,12 +141,26 @@ pipeline {
                 echo 'Building Docker image...'
 
                 bat '''
+                    echo.
+                    echo ========================================
+                    echo BUILDING DOCKER IMAGE
+                    echo ========================================
+
                     docker build -t %DOCKER_IMAGE%:%BUILD_NUMBER% .
+
+                    if errorlevel 1 (
+                        echo Docker build failed.
+                        exit /b 1
+                    )
+
                     docker tag %DOCKER_IMAGE%:%BUILD_NUMBER% %DOCKER_IMAGE%:latest
 
                     echo.
-                    echo Docker images created:
+                    echo Docker images:
                     docker images %DOCKER_IMAGE%
+
+                    echo.
+                    echo Docker build completed successfully.
                 '''
             }
         }
@@ -120,9 +177,21 @@ pipeline {
                     )
                 ]) {
                     bat '''
+                        echo.
+                        echo ========================================
+                        echo DOCKER HUB LOGIN
+                        echo ========================================
+
                         echo %DOCKER_PASSWORD% | docker login ^
                             -u %DOCKER_USERNAME% ^
                             --password-stdin
+
+                        if errorlevel 1 (
+                            echo Docker Hub login failed.
+                            exit /b 1
+                        )
+
+                        echo Docker Hub login successful.
                     '''
                 }
             }
@@ -133,62 +202,133 @@ pipeline {
                 echo 'Pushing Docker image to Docker Hub...'
 
                 bat '''
+                    echo.
+                    echo ========================================
+                    echo PUSHING VERSION IMAGE
+                    echo ========================================
+
                     docker push %DOCKER_IMAGE%:%BUILD_NUMBER%
+
+                    if errorlevel 1 (
+                        echo Failed to push build image.
+                        exit /b 1
+                    )
+
+                    echo.
+                    echo ========================================
+                    echo PUSHING LATEST IMAGE
+                    echo ========================================
+
                     docker push %DOCKER_IMAGE%:latest
+
+                    if errorlevel 1 (
+                        echo Failed to push latest image.
+                        exit /b 1
+                    )
+
+                    echo.
+                    echo Docker images pushed successfully.
                 '''
             }
         }
 
         stage('Deploy') {
             steps {
-                echo 'Deploying AI Recipe Generator container...'
+                echo 'Deploying AI Recipe Generator...'
 
                 bat '''
-                    echo Stopping existing container...
+                    echo.
+                    echo ========================================
+                    echo STOPPING OLD CONTAINER
+                    echo ========================================
 
-                    docker stop %APP_NAME% >nul 2>&1 || echo No running container found.
+                    docker stop %APP_NAME% >nul 2>&1
 
-                    echo Removing existing container...
+                    echo Old container stopped or not running.
 
-                    docker rm %APP_NAME% >nul 2>&1 || echo No existing container found.
+                    echo.
+                    echo ========================================
+                    echo REMOVING OLD CONTAINER
+                    echo ========================================
 
-                    echo Pulling latest image...
+                    docker rm %APP_NAME% >nul 2>&1
+
+                    echo Old container removed or not found.
+
+                    echo.
+                    echo ========================================
+                    echo PULLING LATEST IMAGE
+                    echo ========================================
 
                     docker pull %DOCKER_IMAGE%:latest
 
-                    echo Starting new container...
+                    if errorlevel 1 (
+                        echo Failed to pull Docker image.
+                        exit /b 1
+                    )
+
+                    echo.
+                    echo ========================================
+                    echo STARTING NEW CONTAINER
+                    echo ========================================
 
                     docker run -d ^
                         --name %APP_NAME% ^
                         -p %HOST_PORT%:%APP_PORT% ^
                         %DOCKER_IMAGE%:latest
 
+                    if errorlevel 1 (
+                        echo Failed to start Docker container.
+                        exit /b 1
+                    )
+
                     echo.
                     echo Container started successfully.
 
-                    docker ps
+                    echo.
+                    echo ========================================
+                    echo CONTAINER STATUS
+                    echo ========================================
+
+                    docker ps --filter "name=%APP_NAME%"
                 '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                echo 'Verifying Docker container...'
+                echo 'Verifying application deployment...'
 
                 bat '''
+                    echo.
+                    echo Waiting for application to start...
                     timeout /t 10 /nobreak >nul
 
                     echo.
-                    echo Container status:
+                    echo ========================================
+                    echo CONTAINER STATUS
+                    echo ========================================
+
                     docker ps --filter "name=%APP_NAME%"
 
                     echo.
-                    echo Container logs:
+                    echo ========================================
+                    echo CONTAINER LOGS
+                    echo ========================================
+
                     docker logs %APP_NAME% --tail 30
 
                     echo.
-                    echo Checking application port...
-                    powershell -Command "try { $r = Invoke-WebRequest -Uri http://localhost:%HOST_PORT% -UseBasicParsing -TimeoutSec 10; Write-Host ('HTTP Status: ' + $r.StatusCode) } catch { Write-Host ('Application check: ' + $_.Exception.Message) }"
+                    echo ========================================
+                    echo APPLICATION CHECK
+                    echo ========================================
+
+                    powershell -Command "try { $response = Invoke-WebRequest -Uri http://localhost:%HOST_PORT% -UseBasicParsing -TimeoutSec 10; Write-Host ('Application HTTP Status: ' + $response.StatusCode) } catch { Write-Host ('Application check returned: ' + $_.Exception.Message) }"
+
+                    echo.
+                    echo ========================================
+                    echo DEPLOYMENT VERIFICATION COMPLETED
+                    echo ========================================
                 '''
             }
         }
@@ -199,20 +339,23 @@ pipeline {
             echo '========================================'
             echo 'PIPELINE COMPLETED SUCCESSFULLY'
             echo '========================================'
-            echo 'AI Recipe Generator is deployed.'
+            echo 'AI Recipe Generator has been deployed.'
             echo 'Application URL: http://localhost:5000'
+            echo 'Docker Image: vijayan12/ai-recipe-generator:latest'
         }
 
         failure {
             echo '========================================'
             echo 'PIPELINE FAILED'
             echo '========================================'
-            echo 'Please check the Jenkins console output.'
+            echo 'Check the Jenkins Console Output for the failed stage.'
         }
 
         always {
-            echo 'Pipeline execution completed.'
+            echo '========================================'
+            echo 'PIPELINE EXECUTION COMPLETED'
+            echo '========================================'
         }
     }
 }
-
+```
