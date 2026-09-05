@@ -1,24 +1,12 @@
+```groovy
 pipeline {
-
     agent any
 
     environment {
-        // ==============================
-        // TOOL PATHS
-        // ==============================
-
         PYTHON = 'C:\\Users\\Vijayan\\AppData\\Local\\Python\\bin\\python.exe'
         GIT = 'C:\\Program Files\\Git\\cmd\\git.exe'
 
-        // ==============================
-        // DOCKER IMAGE
-        // ==============================
-
         DOCKER_IMAGE = 'vijayan12/ai-recipe-generator'
-
-        // ==============================
-        // APPLICATION
-        // ==============================
 
         APP_NAME = 'ai-recipe-generator'
         APP_PORT = '5000'
@@ -27,20 +15,12 @@ pipeline {
 
     stages {
 
-        // ============================================================
-        // 1. CHECK TOOLS
-        // ============================================================
-
         stage('Check Tools') {
-
             steps {
-
                 bat '''
-                    echo.
                     echo ==========================================
                     echo CHECKING PYTHON
                     echo ==========================================
-
                     "%PYTHON%" --version
 
                     if %ERRORLEVEL% NEQ 0 (
@@ -48,11 +28,9 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo.
                     echo ==========================================
                     echo CHECKING GIT
                     echo ==========================================
-
                     "%GIT%" --version
 
                     if %ERRORLEVEL% NEQ 0 (
@@ -60,11 +38,9 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo.
                     echo ==========================================
                     echo CHECKING DOCKER
                     echo ==========================================
-
                     docker --version
 
                     if %ERRORLEVEL% NEQ 0 (
@@ -72,11 +48,9 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo.
                     echo ==========================================
                     echo CHECKING DOCKER ENGINE
                     echo ==========================================
-
                     docker info >nul 2>&1
 
                     if %ERRORLEVEL% NEQ 0 (
@@ -84,50 +58,30 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo.
-                    echo Docker Engine is running successfully.
-
-                    echo.
-                    echo ==========================================
                     echo ALL TOOLS ARE READY
-                    echo ==========================================
                 '''
             }
         }
 
-
-        // ============================================================
-        // 2. SET UP PYTHON
-        // ============================================================
-
         stage('Set Up Python') {
-
             steps {
-
                 dir('AI_Recipe_Generator') {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo SETTING UP PYTHON
                         echo ==========================================
 
                         if not exist venv (
                             echo Creating virtual environment...
-
                             "%PYTHON%" -m venv venv
 
                             if %ERRORLEVEL% NEQ 0 (
                                 echo Failed to create virtual environment.
                                 exit /b 1
                             )
-                        ) else (
-                            echo Virtual environment already exists.
                         )
 
-                        echo.
                         echo Upgrading pip...
-
                         venv\\Scripts\\python.exe -m pip install --upgrade pip
 
                         if %ERRORLEVEL% NEQ 0 (
@@ -135,9 +89,7 @@ pipeline {
                             exit /b 1
                         )
 
-                        echo.
                         echo Installing requirements...
-
                         venv\\Scripts\\python.exe -m pip install -r requirements.txt
 
                         if %ERRORLEVEL% NEQ 0 (
@@ -145,115 +97,67 @@ pipeline {
                             exit /b 1
                         )
 
-                        echo.
                         echo Python setup completed successfully.
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // 3. LINT / BASIC CHECKS
-        // ============================================================
-
         stage('Lint / Basic Checks') {
-
             steps {
-
                 dir('AI_Recipe_Generator') {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo LINT CHECK
                         echo ==========================================
 
                         venv\\Scripts\\python.exe -m pip install flake8
 
-                        echo.
-                        echo Running Flake8...
-
                         venv\\Scripts\\python.exe -m flake8 . --max-line-length=120 --exclude=venv
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo.
                             echo Flake8 found warnings/errors.
                             echo Continuing because lint is non-blocking.
                             exit /b 0
-                        )
+                        }
 
-                        echo.
                         echo Lint check completed successfully.
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // 4. RUN TESTS
-        // ============================================================
-
         stage('Run Tests') {
-
             steps {
-
                 dir('AI_Recipe_Generator') {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo RUNNING TESTS
                         echo ==========================================
 
                         venv\\Scripts\\python.exe -m pip install pytest
 
-                        echo.
-                        echo Starting pytest...
-
                         venv\\Scripts\\python.exe -m pytest
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo.
                             echo No tests found or tests failed.
                             echo Continuing because tests are currently non-blocking.
                             exit /b 0
-                        )
+                        }
 
-                        echo.
                         echo Tests completed successfully.
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // 5. BUILD DOCKER IMAGE
-        // ============================================================
-
         stage('Build Docker Image') {
-
             steps {
-
                 dir('AI_Recipe_Generator') {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo BUILDING DOCKER IMAGE
                         echo ==========================================
-
-                        echo Image:
-                        echo %DOCKER_IMAGE%
-
-                        echo.
-                        echo Build Number:
-                        echo %BUILD_NUMBER%
-
-                        echo.
-                        echo Building Docker image...
 
                         docker build ^
                             -t %DOCKER_IMAGE%:%BUILD_NUMBER% ^
@@ -261,34 +165,18 @@ pipeline {
                             .
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo.
                             echo Docker image build failed.
                             exit /b 1
                         )
 
-                        echo.
-                        echo ==========================================
                         echo DOCKER IMAGE BUILT SUCCESSFULLY
-                        echo ==========================================
-
-                        echo.
-                        echo Available images:
-
-                        docker images %DOCKER_IMAGE%
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // 6. LOGIN TO DOCKER HUB
-        // ============================================================
-
         stage('Login to DockerHub') {
-
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -296,111 +184,68 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo DOCKER HUB LOGIN
                         echo ==========================================
-
-                        echo Logging into Docker Hub...
 
                         echo %DOCKER_PASSWORD% | docker login ^
                             -u %DOCKER_USERNAME% ^
                             --password-stdin
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo.
                             echo Docker Hub login failed.
                             echo Please check Jenkins credential:
                             echo dockerhub-credentials
                             exit /b 1
                         )
 
-                        echo.
                         echo Docker Hub login successful.
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // 7. PUSH DOCKER IMAGE
-        // ============================================================
-
         stage('Push to DockerHub') {
-
             steps {
-
                 bat '''
-                    echo.
                     echo ==========================================
                     echo PUSHING DOCKER IMAGE
                     echo ==========================================
 
-                    echo.
-                    echo Pushing version:
-                    echo %DOCKER_IMAGE%:%BUILD_NUMBER%
-
                     docker push %DOCKER_IMAGE%:%BUILD_NUMBER%
 
                     if %ERRORLEVEL% NEQ 0 (
-                        echo.
                         echo Version image push failed.
                         exit /b 1
                     )
 
-                    echo.
-                    echo Version image pushed successfully.
-
-                    echo.
-                    echo Pushing latest:
-
                     docker push %DOCKER_IMAGE%:latest
 
                     if %ERRORLEVEL% NEQ 0 (
-                        echo.
                         echo Latest image push failed.
                         exit /b 1
                     )
 
-                    echo.
-                    echo Latest image pushed successfully.
-
-                    echo.
-                    echo ==========================================
                     echo DOCKER PUSH COMPLETED
-                    echo ==========================================
                 '''
             }
         }
 
-
-        // ============================================================
-        // 8. DEPLOY
-        // ============================================================
-
         stage('Deploy') {
-
             steps {
-
                 dir('AI_Recipe_Generator') {
-
                     bat '''
-                        echo.
                         echo ==========================================
                         echo DEPLOYING APPLICATION
                         echo ==========================================
 
-                        echo.
-                        echo Stopping old container if it exists...
-
+                        echo Stopping old container...
                         docker stop %APP_NAME% >nul 2>&1
 
+                        echo Removing old container...
                         docker rm %APP_NAME% >nul 2>&1
 
-                        echo.
                         echo Starting new container...
 
                         docker run -d ^
@@ -409,41 +254,26 @@ pipeline {
                             %DOCKER_IMAGE%:%BUILD_NUMBER%
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo.
                             echo Docker container failed to start.
                             exit /b 1
                         )
 
-                        echo.
                         echo ==========================================
                         echo APPLICATION DEPLOYED SUCCESSFULLY
                         echo ==========================================
 
-                        echo.
-                        echo Container:
                         docker ps --filter "name=%APP_NAME%"
 
-                        echo.
                         echo Application URL:
                         echo http://localhost:%HOST_PORT%
-
-                        echo.
-                        echo ==========================================
                     '''
                 }
             }
         }
     }
 
-
-    // ================================================================
-    // POST ACTIONS
-    // ================================================================
-
     post {
-
         success {
-
             echo """
 ==========================================
        PIPELINE SUCCESSFUL
@@ -469,10 +299,9 @@ http://localhost:5000
         }
 
         failure {
-
             echo """
 ==========================================
-          PIPELINE FAILED
+         PIPELINE FAILED
 ==========================================
 
 Build Number:
@@ -485,7 +314,8 @@ Check the failed stage above.
         }
 
         always {
-
             echo 'Pipeline execution completed.'
         }
     }
+}
+```
