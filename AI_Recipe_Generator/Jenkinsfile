@@ -489,4 +489,3 @@ Check the failed stage above.
             echo 'Pipeline execution completed.'
         }
     }
-}
